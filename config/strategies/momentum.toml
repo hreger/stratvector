@@ -1,0 +1,23 @@
+[parameters]
+lookback_period = 20
+holding_period = 10
+rebalance_frequency = "1d"
+position_size = 0.1
+entry_threshold = 0.02
+exit_threshold = -0.01
+max_position_size = 0.2
+
+[universe]
+symbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "META"]
+exchange = "NASDAQ"
+currency = "USD"
+
+[risk]
+max_position_size = 0.2
+stop_loss = 0.05
+take_profit = 0.1
+max_drawdown = 0.15
+
+[execution]
+slippage = 0.001
+commission = 0.001 
