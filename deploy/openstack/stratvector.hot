@@ -1,0 +1,107 @@
+heat_template_version: 2021-04-16
+
+description: >
+  StratVector trading application deployment on OpenStack
+  Includes main application, monitoring, and drift detection
+
+parameters:
+  image_id:
+    type: string
+    description: ID of the base image to use for instances
+  flavor_id:
+    type: string
+    description: ID of the flavor to use for instances
+  key_name:
+    type: string
+    description: Name of the key pair to use for SSH access
+  network_id:
+    type: string
+    description: ID of the network to connect instances to
+  config_url:
+    type: string
+    description: URL to fetch configuration files from
+
+resources:
+  # Main application server
+  app_server:
+    type: OS::Nova::Server
+    properties:
+      image: { get_param: image_id }
+      flavor: { get_param: flavor_id }
+      key_name: { get_param: key_name }
+      networks:
+        - network: { get_param: network_id }
+      user_data:
+        str_replace:
+          template: |
+            #!/bin/bash
+            # Install Docker
+            curl -fsSL https://get.docker.com | sh
+            
+            # Create app directory
+            mkdir -p /opt/stratvector
+            
+            # Download configuration
+            curl -o /opt/stratvector/config.tar.gz { get_param: config_url }
+            tar xzf /opt/stratvector/config.tar.gz -C /opt/stratvector
+            
+            # Run application container
+            docker run -d \
+              --name stratvector \
+              -p 8000:8000 \
+              -p 9090:9090 \
+              -v /opt/stratvector/config:/app/config \
+              -v /opt/stratvector/data:/app/data \
+              stratvector:latest
+
+  # Monitoring server
+  monitoring_server:
+    type: OS::Nova::Server
+    properties:
+      image: { get_param: image_id }
+      flavor: { get_param: flavor_id }
+      key_name: { get_param: key_name }
+      networks:
+        - network: { get_param: network_id }
+      user_data:
+        str_replace:
+          template: |
+            #!/bin/bash
+            # Install Docker
+            curl -fsSL https://get.docker.com | sh
+            
+            # Create monitoring directory
+            mkdir -p /opt/monitoring
+            
+            # Download configuration
+            curl -o /opt/monitoring/config.tar.gz { get_param: config_url }
+            tar xzf /opt/monitoring/config.tar.gz -C /opt/monitoring
+            
+            # Run monitoring stack
+            docker-compose -f /opt/monitoring/docker-compose.yml up -d
+
+  # Ceilometer alarm for memory usage
+  memory_alarm:
+    type: OS::Ceilometer::Alarm
+    properties:
+      description: Memory usage above 80%
+      meter_name: memory.usage
+      statistic: avg
+      period: 60
+      evaluation_periods: 3
+      threshold: 80
+      comparison_operator: gt
+      alarm_actions:
+        - { get_attr: [app_server, OS::Nova::Server, id] }
+
+outputs:
+  app_url:
+    description: URL of the StratVector application
+    value:
+      str_replace:
+        template: http://{ get_attr: [app_server, first_address] }:8000
+  monitoring_url:
+    description: URL of the monitoring dashboard
+    value:
+      str_replace:
+        template: http://{ get_attr: [monitoring_server, first_address] }:3000 

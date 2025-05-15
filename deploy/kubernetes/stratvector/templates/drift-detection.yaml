@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: drift-detection
+spec:
+  schedule: "0 */6 * * *"  # Run every 6 hours
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: drift-detector
+            image: evidentlyai/evidently:latest
+            args:
+            - "--config"
+            - "/config/drift_config.yaml"
+            volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: data
+              mountPath: /data
+          volumes:
+          - name: config
+            configMap:
+              name: {{ .Release.Name }}-drift-config
+          - name: data
+            persistentVolumeClaim:
+              claimName: {{ .Release.Name }}-data
+          restartPolicy: OnFailure 

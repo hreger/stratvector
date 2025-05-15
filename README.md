@@ -21,31 +21,6 @@
 
 ---
 
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Python 3.7+
-- Interactive Brokers Gateway (for live trading)
-- TA-Lib (recommended for technical indicators)
-
-### Installation
-
-```
-# Clone repository
-git clone https://github.com/hreger/stratvector
-cd stratvector
-
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-
-# Install with core dependencies
-pip install -e ".[dev]"
-```
-
----
-
 ## 📁 Project Structure
 
 ```
@@ -160,19 +135,186 @@ class LiveTradingSession:
 
 ---
 
-## 🛠️ Development Guidelines
+## Development Types
+### Local Development
+1. Start the development environment:
+   ```bash
+   docker-compose up -d
+   ```
 
-### Testing Framework
+2. Access the services:
+   - Application: http://localhost:8000
+   - Grafana: http://localhost:3000 (admin/admin)
+   - Prometheus: http://localhost:9091
+   - Drift Detection: http://localhost:8080
+
+### OpenStack Deployment
+
+1. Prepare the environment:
+   ```bash
+   # Set OpenStack credentials
+   source openrc.sh
+   
+   # Create configuration archive
+   tar czf config.tar.gz config/
+   ```
+
+2. Deploy using Heat:
+   ```bash
+   openstack stack create -t deploy/openstack/stratvector.hot \
+     -e deploy/openstack/parameters.yaml \
+     stratvector-stack
+   ```
+
+3. Update deployment:
+   ```bash
+   # Update configuration
+   tar czf config.tar.gz config/
+   
+   # Update stack
+   openstack stack update -t deploy/openstack/stratvector.hot \
+     -e deploy/openstack/parameters.yaml \
+     stratvector-stack
+   ```
+
+### Kubernetes Deployment
+
+1. Add required repositories:
+   ```bash
+   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+   helm repo add grafana https://grafana.github.io/helm-charts
+   helm repo update
+   ```
+
+2. Install dependencies:
+   ```bash
+   helm install prometheus prometheus-community/kube-prometheus-stack
+   ```
+
+3. Install StratVector:
+   ```bash
+   helm install stratvector deploy/kubernetes/stratvector
+   ```
+
+4. Upgrade deployment:
+   ```bash
+   helm upgrade stratvector deploy/kubernetes/stratvector
+   ```
+
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Python 3.7+
+- Interactive Brokers Gateway (for live trading)
+- TA-Lib (recommended for technical indicators)
+
+### Installation
 
 ```
-# Run all tests with coverage
-pytest tests/ --cov=src --cov-report=html
+# Clone repository
+git clone https://github.com/hreger/stratvector
+cd stratvector
 
-# Stress test Monte Carlo simulations
-python -m tests.stress_test --simulations 10000
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+# Install with core dependencies
+pip install -e ".[dev]"
 ```
 
-### Contribution Workflow
+---
+
+
+## Monitoring
+
+### Prometheus Metrics
+
+The application exposes the following metrics:
+
+- `process_resident_memory_bytes`: Memory usage
+- `order_latency_seconds`: Order execution latency
+- `strategy_drift_score`: Strategy drift detection score
+
+### Alerts
+
+Configured alerts include:
+
+- High memory usage (>1GB for 5 minutes)
+- High order latency (>1 second for 1 minute)
+- Strategy drift detected (score >0.8 for 5 minutes)
+
+### Grafana Dashboards
+
+Pre-configured dashboards:
+
+1. System Overview
+   - Memory usage
+   - CPU usage
+   - Network I/O
+
+2. Trading Performance
+   - Order latency
+   - Execution success rate
+   - PnL tracking
+
+3. Strategy Monitoring
+   - Drift detection scores
+   - Signal distribution
+   - Position sizes
+
+## Strategy Drift Detection
+
+The drift detection service runs every 6 hours and monitors:
+
+- Feature distribution changes
+- Performance degradation
+- Market regime shifts
+
+Results are available in Grafana and can trigger alerts.
+
+## Maintenance
+
+### Regular Tasks
+
+1. Daily:
+   - Review performance metrics
+   - Check system logs
+   - Verify market data
+
+2. Weekly:
+   - Performance analysis
+   - Strategy review
+   - Risk assessment
+
+3. Monthly:
+   - Strategy optimization
+   - Parameter review
+   - System upgrade
+
+### Emergency Procedures
+
+1. System Shutdown:
+   ```bash
+   # Kubernetes
+   kubectl scale deployment stratvector --replicas=0
+   
+   # Docker Compose
+   docker-compose down
+   ```
+
+2. Data Backup:
+   ```bash
+   # Backup configuration
+   tar czf config_backup.tar.gz config/
+   
+   # Backup data
+   tar czf data_backup.tar.gz data/
+   ```
+
+## Contribution Workflow
 
 1. Fork the repository
 2. Create feature branch (`git checkout -b feature/awesome-feature`)

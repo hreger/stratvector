@@ -1,0 +1,29 @@
+groups:
+  - name: stratvector_alerts
+    rules:
+      - name: HighMemoryUsage
+        expr: process_resident_memory_bytes > 1e9  # 1GB
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: High memory usage detected
+          description: "Memory usage is above 1GB for 5 minutes"
+
+      - name: HighOrderLatency
+        expr: order_latency_seconds > 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: High order latency detected
+          description: "Order latency is above 1 second for 1 minute"
+
+      - name: StrategyDriftDetected
+        expr: strategy_drift_score > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Strategy drift detected
+          description: "Strategy drift score is above 0.8 for 5 minutes" 

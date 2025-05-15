@@ -1,52 +1,85 @@
 version: '3.8'
 
 services:
-  jupyter:
+  # Main application
+  stratvector:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8888:8888"
+      - "8000:8000"  # API port
+      - "9090:9090"  # Prometheus metrics port
     volumes:
-      - .:/workspace
-      - ./data:/workspace/data
-      - ./notebooks:/workspace/notebooks
+      - ./config:/app/config
+      - ./data:/app/data
     environment:
-      - JUPYTER_ENABLE_LAB=yes
-      - JUPYTER_TOKEN=stratvector
+      - REDIS_URL=redis://redis:6379
+      - PROMETHEUS_MULTIPROC_DIR=/tmp
     depends_on:
       - redis
-      - postgres
+    networks:
+      - stratvector_net
 
+  # Redis for caching and pub/sub
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 3
+    networks:
+      - stratvector_net
 
-  postgres:
-    image: postgres:15-alpine
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:v2.45.0
     ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_USER=stratvector
-      - POSTGRES_PASSWORD=stratvector
-      - POSTGRES_DB=stratvector
+      - "9091:9090"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U stratvector"]
-      interval: 5s
-      timeout: 3s
-      retries: 3
+      - ./prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - stratvector_net
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:10.0.0
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    depends_on:
+      - prometheus
+    networks:
+      - stratvector_net
+
+  # Strategy drift detection using Evidently
+  drift_detector:
+    image: evidentlyai/evidently:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/data
+      - ./config/drift:/config
+    environment:
+      - EVIDENTLY_CONFIG_PATH=/config/drift_config.yaml
+    networks:
+      - stratvector_net
+
+networks:
+  stratvector_net:
+    driver: bridge
 
 volumes:
   redis_data:
-  postgres_data: 
+  prometheus_data:
+  grafana_data: 

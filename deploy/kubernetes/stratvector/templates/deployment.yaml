@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stratvector
+  labels:
+    app: stratvector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stratvector
+  template:
+    metadata:
+      labels:
+        app: stratvector
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: stratvector
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: 8000
+          name: api
+        - containerPort: 9090
+          name: metrics
+        env:
+        - name: REDIS_URL
+          value: "redis://{{ .Release.Name }}-redis:6379"
+        - name: PROMETHEUS_MULTIPROC_DIR
+          value: "/tmp"
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+        - name: data
+          mountPath: /app/data
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+      - name: config
+        configMap:
+          name: {{ .Release.Name }}-config
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-data 
