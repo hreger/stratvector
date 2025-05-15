@@ -1,0 +1,52 @@
+{
+    "family": "stratvector",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "cpu": "1024",
+    "memory": "2048",
+    "containerDefinitions": [
+        {
+            "name": "stratvector",
+            "image": "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}",
+            "essential": true,
+            "portMappings": [
+                {
+                    "containerPort": 8888,
+                    "protocol": "tcp"
+                }
+            ],
+            "environment": [
+                {
+                    "name": "REDIS_HOST",
+                    "value": "${REDIS_HOST}"
+                },
+                {
+                    "name": "POSTGRES_HOST",
+                    "value": "${POSTGRES_HOST}"
+                },
+                {
+                    "name": "POSTGRES_USER",
+                    "value": "stratvector"
+                },
+                {
+                    "name": "POSTGRES_PASSWORD",
+                    "value": "${POSTGRES_PASSWORD}"
+                },
+                {
+                    "name": "POSTGRES_DB",
+                    "value": "stratvector"
+                }
+            ],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/stratvector",
+                    "awslogs-region": "${AWS_REGION}",
+                    "awslogs-stream-prefix": "ecs"
+                }
+            }
+        }
+    ]
+} 
